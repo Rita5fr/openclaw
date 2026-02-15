@@ -15,7 +15,7 @@ export function createWhatsAppChannelLookupTool(): ChannelAgentTool {
       }),
       inviteLink: Type.Optional(Type.String()),
     }),
-    execute: async (_toolCallId: string, args: Record<string, unknown>) => {
+    execute: async (_toolCallId: string, args: unknown) => {
       const { requireActiveWebListener } = await import("../../../web/active-listener.js");
       const action = (args as { action?: string })?.action ?? "lookup";
       const { listener } = requireActiveWebListener();
