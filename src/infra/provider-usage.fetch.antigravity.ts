@@ -36,11 +36,15 @@ type CreditsInfo = {
 };
 
 const BASE_URL = "https://cloudcode-pa.googleapis.com";
+const ANTIGRAVITY_DAILY_URL = "https://daily-cloudcode-pa.sandbox.googleapis.com";
 const LOAD_CODE_ASSIST_PATH = "/v1internal:loadCodeAssist";
 const FETCH_AVAILABLE_MODELS_PATH = "/v1internal:fetchAvailableModels";
 
+// Antigravity version — keep in sync with pi-mono's DEFAULT_ANTIGRAVITY_VERSION
+const DEFAULT_ANTIGRAVITY_VERSION = "1.15.8";
+
 const METADATA = {
-  ideType: "ANTIGRAVITY",
+  ideType: "IDE_UNSPECIFIED",
   platform: "PLATFORM_UNSPECIFIED",
   pluginType: "GEMINI",
 };
@@ -190,10 +194,11 @@ export async function fetchAntigravityUsage(
   timeoutMs: number,
   fetchFn: typeof fetch,
 ): Promise<ProviderUsageSnapshot> {
+  const version = process.env.PI_AI_ANTIGRAVITY_VERSION || DEFAULT_ANTIGRAVITY_VERSION;
   const headers: Record<string, string> = {
     Authorization: `Bearer ${token}`,
     "Content-Type": "application/json",
-    "User-Agent": "antigravity",
+    "User-Agent": `antigravity/${version} darwin/arm64`,
     "X-Goog-Api-Client": "google-cloud-sdk vscode_cloudshelleditor/0.1",
   };
 
