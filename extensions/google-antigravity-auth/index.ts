@@ -20,6 +20,9 @@ const TOKEN_URL = "https://oauth2.googleapis.com/token";
 const DEFAULT_PROJECT_ID = "rising-fact-p41fc";
 const DEFAULT_MODEL = "google-antigravity/claude-opus-4-6-thinking";
 
+// Antigravity version — keep in sync with pi-mono's DEFAULT_ANTIGRAVITY_VERSION
+const DEFAULT_ANTIGRAVITY_VERSION = "1.15.8";
+
 const SCOPES = [
   "https://www.googleapis.com/auth/cloud-platform",
   "https://www.googleapis.com/auth/userinfo.email",
@@ -226,10 +229,11 @@ async function fetchUserEmail(accessToken: string): Promise<string | undefined> 
 }
 
 async function fetchProjectId(accessToken: string): Promise<string> {
+  const version = process.env.PI_AI_ANTIGRAVITY_VERSION || DEFAULT_ANTIGRAVITY_VERSION;
   const headers = {
     Authorization: `Bearer ${accessToken}`,
     "Content-Type": "application/json",
-    "User-Agent": "google-api-nodejs-client/9.15.1",
+    "User-Agent": `antigravity/${version} darwin/arm64`,
     "X-Goog-Api-Client": "google-cloud-sdk vscode_cloudshelleditor/0.1",
     "Client-Metadata": JSON.stringify({
       ideType: "IDE_UNSPECIFIED",
