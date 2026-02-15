@@ -409,7 +409,7 @@ export async function monitorWebInbox(options: {
     signalClose: (reason?: WebListenerCloseReason) => {
       resolveClose(reason ?? { status: undefined, isLoggedOut: false, error: "closed" });
     },
-    // IPC surface (sendMessage/sendPoll/sendReaction/sendComposingTo)
+    // IPC surface (sendMessage/sendPoll/sendReaction/sendComposingTo/newsletter*)
     ...sendApi,
-  } as const;
+  };
 }

@@ -140,15 +140,19 @@ export function createWebSendApi(params: {
       await params.sock.sendPresenceUpdate("composing", jid);
     },
     newsletterGetByInvite: params.sock.newsletterMetadata
-      ? async (inviteCode: string) => {
+      ? async (inviteCode: string): Promise<NewsletterInfo> => {
           const raw = await params.sock.newsletterMetadata!("invite", inviteCode);
-          return toNewsletterInfo(raw);
+          const info = toNewsletterInfo(raw);
+          if (!info) throw new Error(`Channel not found for invite code: ${inviteCode}`);
+          return info;
         }
       : undefined,
     newsletterGetByJid: params.sock.newsletterMetadata
-      ? async (jid: string) => {
+      ? async (jid: string): Promise<NewsletterInfo> => {
           const raw = await params.sock.newsletterMetadata!("jid", jid);
-          return toNewsletterInfo(raw);
+          const info = toNewsletterInfo(raw);
+          if (!info) throw new Error(`Channel not found for JID: ${jid}`);
+          return info;
         }
       : undefined,
     newsletterList: params.sock.newsletterSubscribed

@@ -15,7 +15,7 @@ export function createWhatsAppChannelLookupTool(): ChannelAgentTool {
       }),
       inviteLink: Type.Optional(Type.String()),
     }),
-    execute: async (_toolCallId, args) => {
+    execute: async (_toolCallId: string, args: Record<string, unknown>) => {
       const { requireActiveWebListener } = await import("../../../web/active-listener.js");
       const action = (args as { action?: string })?.action ?? "lookup";
       const { listener } = requireActiveWebListener();
@@ -23,13 +23,15 @@ export function createWhatsAppChannelLookupTool(): ChannelAgentTool {
       if (action === "list") {
         if (!listener.newsletterList) {
           return {
-            content: [{ type: "text", text: "Newsletter listing is not available. The WhatsApp connection may not support this feature." }],
+            content: [{ type: "text" as const, text: "Newsletter listing is not available. The WhatsApp connection may not support this feature." }],
+            details: { action: "list", found: false },
           };
         }
         const channels = await listener.newsletterList();
         if (channels.length === 0) {
           return {
-            content: [{ type: "text", text: "No followed channels found." }],
+            content: [{ type: "text" as const, text: "No followed channels found." }],
+            details: { action: "list", found: false },
           };
         }
         const lines = channels.map(
@@ -37,7 +39,8 @@ export function createWhatsAppChannelLookupTool(): ChannelAgentTool {
             `- **${ch.name}** (JID: \`${ch.id}\`)${ch.subscribersCount ? ` — ${ch.subscribersCount} subscribers` : ""}${ch.verified ? " ✅" : ""}${ch.inviteUrl ? ` — ${ch.inviteUrl}` : ""}`,
         );
         return {
-          content: [{ type: "text", text: `Found ${channels.length} followed channel(s):\n\n${lines.join("\n")}` }],
+          content: [{ type: "text" as const, text: `Found ${channels.length} followed channel(s):\n\n${lines.join("\n")}` }],
+          details: { action: "list", found: true, count: channels.length },
         };
       }
 
@@ -45,12 +48,14 @@ export function createWhatsAppChannelLookupTool(): ChannelAgentTool {
       const inviteLink = (args as { inviteLink?: string })?.inviteLink?.trim();
       if (!inviteLink) {
         return {
-          content: [{ type: "text", text: "Please provide an invite link or code. Example: https://whatsapp.com/channel/0029VaXXXXXX" }],
+          content: [{ type: "text" as const, text: "Please provide an invite link or code. Example: https://whatsapp.com/channel/0029VaXXXXXX" }],
+          details: { action: "lookup", found: false },
         };
       }
       if (!listener.newsletterGetByInvite) {
         return {
-          content: [{ type: "text", text: "Channel lookup is not available. The WhatsApp connection may not support this feature." }],
+          content: [{ type: "text" as const, text: "Channel lookup is not available. The WhatsApp connection may not support this feature." }],
+          details: { action: "lookup", found: false },
         };
       }
 
@@ -61,11 +66,6 @@ export function createWhatsAppChannelLookupTool(): ChannelAgentTool {
 
       try {
         const info = await listener.newsletterGetByInvite(code);
-        if (!info) {
-          return {
-            content: [{ type: "text", text: `Could not find a channel for invite code: ${code}` }],
-          };
-        }
         const details = [
           `**${info.name}**${info.verified ? " ✅" : ""}`,
           `- JID: \`${info.id}\``,
@@ -78,11 +78,13 @@ export function createWhatsAppChannelLookupTool(): ChannelAgentTool {
           .filter((line) => line !== null)
           .join("\n");
         return {
-          content: [{ type: "text", text: details }],
+          content: [{ type: "text" as const, text: details }],
+          details: { action: "lookup", found: true, jid: info.id },
         };
       } catch (err) {
         return {
-          content: [{ type: "text", text: `Failed to look up channel: ${String(err)}` }],
+          content: [{ type: "text" as const, text: `Failed to look up channel: ${String(err)}` }],
+          details: { action: "lookup", found: false },
         };
       }
     },
