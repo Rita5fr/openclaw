@@ -8,6 +8,17 @@ export type ActiveWebSendOptions = {
   fileName?: string;
 };
 
+export type NewsletterInfo = {
+  id: string;
+  name: string;
+  description?: string;
+  invite?: string;
+  inviteUrl?: string;
+  subscribersCount?: number;
+  verified?: boolean;
+  picture?: string;
+};
+
 export type ActiveWebListener = {
   sendMessage: (
     to: string,
@@ -26,6 +37,9 @@ export type ActiveWebListener = {
   ) => Promise<void>;
   sendComposingTo: (to: string) => Promise<void>;
   close?: () => Promise<void>;
+  newsletterGetByInvite?: (inviteCode: string) => Promise<NewsletterInfo>;
+  newsletterGetByJid?: (jid: string) => Promise<NewsletterInfo>;
+  newsletterList?: () => Promise<NewsletterInfo[]>;
 };
 
 let _currentListener: ActiveWebListener | null = null;

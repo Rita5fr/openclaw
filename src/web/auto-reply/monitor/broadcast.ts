@@ -41,8 +41,9 @@ export async function maybeBroadcastMessage(params: {
 
   const agentIds = params.cfg.agents?.list?.map((agent) => normalizeAgentId(agent.id));
   const hasKnownAgents = (agentIds?.length ?? 0) > 0;
+  const isGroupLike = params.msg.chatType === "group" || params.msg.chatType === "channel";
   const groupHistorySnapshot =
-    params.msg.chatType === "group"
+    isGroupLike
       ? (params.groupHistories.get(params.groupHistoryKey) ?? [])
       : undefined;
 
@@ -60,7 +61,7 @@ export async function maybeBroadcastMessage(params: {
         channel: "whatsapp",
         accountId: params.route.accountId,
         peer: {
-          kind: params.msg.chatType === "group" ? "group" : "direct",
+          kind: isGroupLike ? "group" : "direct",
           id: params.peerId,
         },
         dmScope: params.cfg.session?.dmScope,
@@ -91,7 +92,7 @@ export async function maybeBroadcastMessage(params: {
     await Promise.allSettled(broadcastAgents.map(processForAgent));
   }
 
-  if (params.msg.chatType === "group") {
+  if (isGroupLike) {
     params.groupHistories.set(params.groupHistoryKey, []);
   }
 

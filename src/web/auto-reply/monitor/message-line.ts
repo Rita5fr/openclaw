@@ -32,7 +32,7 @@ export function buildInboundLine(params: {
   // Wrap with standardized envelope for the agent.
   return formatInboundEnvelope({
     channel: "WhatsApp",
-    from: msg.chatType === "group" ? msg.from : msg.from?.replace(/^whatsapp:/, ""),
+    from: msg.chatType === "group" || msg.chatType === "channel" ? msg.from : msg.from?.replace(/^whatsapp:/, ""),
     timestamp: msg.timestamp,
     body: baseLine,
     chatType: msg.chatType,

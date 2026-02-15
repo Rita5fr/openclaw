@@ -2,6 +2,7 @@ import { normalizeE164 } from "../utils.js";
 
 const WHATSAPP_USER_JID_RE = /^(\d+)(?::\d+)?@s\.whatsapp\.net$/i;
 const WHATSAPP_LID_RE = /^(\d+)@lid$/i;
+const WHATSAPP_NEWSLETTER_JID_RE = /^(\d+)@newsletter$/i;
 
 function stripWhatsAppTargetPrefixes(value: string): string {
   let candidate = value.trim();
@@ -25,6 +26,11 @@ export function isWhatsAppGroupJid(value: string): boolean {
     return false;
   }
   return /^[0-9]+(-[0-9]+)*$/.test(localPart);
+}
+
+export function isWhatsAppNewsletterJid(value: string): boolean {
+  const candidate = stripWhatsAppTargetPrefixes(value);
+  return WHATSAPP_NEWSLETTER_JID_RE.test(candidate);
 }
 
 /**
@@ -60,6 +66,13 @@ export function normalizeWhatsAppTarget(value: string): string | null {
   if (isWhatsAppGroupJid(candidate)) {
     const localPart = candidate.slice(0, candidate.length - "@g.us".length);
     return `${localPart}@g.us`;
+  }
+  if (isWhatsAppNewsletterJid(candidate)) {
+    const match = candidate.match(WHATSAPP_NEWSLETTER_JID_RE);
+    if (match) {
+      return `${match[1]}@newsletter`;
+    }
+    return null;
   }
   // Handle user JIDs (e.g. "41796666864:0@s.whatsapp.net")
   if (isWhatsAppUserTarget(candidate)) {

@@ -16,7 +16,7 @@ export type WebInboundMessage = {
   body: string;
   pushName?: string;
   timestamp?: number;
-  chatType: "direct" | "group";
+  chatType: "direct" | "group" | "channel";
   chatId: string;
   senderJid?: string;
   senderE164?: string;

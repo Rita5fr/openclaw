@@ -41,6 +41,7 @@ import { resolveCommandAuthorizedFromAuthorizers } from "../../channels/command-
 import { discordMessageActions } from "../../channels/plugins/actions/discord.js";
 import { signalMessageActions } from "../../channels/plugins/actions/signal.js";
 import { telegramMessageActions } from "../../channels/plugins/actions/telegram.js";
+import { createWhatsAppChannelLookupTool } from "../../channels/plugins/agent-tools/whatsapp-channel-lookup.js";
 import { createWhatsAppLoginTool } from "../../channels/plugins/agent-tools/whatsapp-login.js";
 import { recordInboundSession } from "../../channels/session.js";
 import { registerMemoryCli } from "../../cli/memory-cli.js";
@@ -393,6 +394,7 @@ export function createPluginRuntime(): PluginRuntime {
         monitorWebChannel: monitorWebChannelLazy,
         handleWhatsAppAction: handleWhatsAppActionLazy,
         createLoginTool: createWhatsAppLoginTool,
+        createChannelLookupTool: createWhatsAppChannelLookupTool,
       },
       line: {
         listLineAccountIds,

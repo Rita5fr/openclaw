@@ -148,6 +148,8 @@ type HandleWhatsAppAction =
   typeof import("../../agents/tools/whatsapp-actions.js").handleWhatsAppAction;
 type CreateWhatsAppLoginTool =
   typeof import("../../channels/plugins/agent-tools/whatsapp-login.js").createWhatsAppLoginTool;
+type CreateWhatsAppChannelLookupTool =
+  typeof import("../../channels/plugins/agent-tools/whatsapp-channel-lookup.js").createWhatsAppChannelLookupTool;
 
 // LINE channel types
 type ListLineAccountIds = typeof import("../../line/accounts.js").listLineAccountIds;
@@ -332,6 +334,7 @@ export type PluginRuntime = {
       monitorWebChannel: MonitorWebChannel;
       handleWhatsAppAction: HandleWhatsAppAction;
       createLoginTool: CreateWhatsAppLoginTool;
+      createChannelLookupTool: CreateWhatsAppChannelLookupTool;
     };
     line: {
       listLineAccountIds: ListLineAccountIds;

@@ -2,7 +2,7 @@ import type { WebInboundMsg } from "../types.js";
 import { jidToE164, normalizeE164 } from "../../../utils.js";
 
 export function resolvePeerId(msg: WebInboundMsg) {
-  if (msg.chatType === "group") {
+  if (msg.chatType === "group" || msg.chatType === "channel") {
     return msg.conversationId ?? msg.from;
   }
   if (msg.senderE164) {

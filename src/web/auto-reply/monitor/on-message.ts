@@ -69,12 +69,13 @@ export function createWebOnMessageHandler(params: {
       channel: "whatsapp",
       accountId: msg.accountId,
       peer: {
-        kind: msg.chatType === "group" ? "group" : "direct",
+        kind: msg.chatType === "group" || msg.chatType === "channel" ? "group" : "direct",
         id: peerId,
       },
     });
+    const isGroupLike = msg.chatType === "group" || msg.chatType === "channel";
     const groupHistoryKey =
-      msg.chatType === "group"
+      isGroupLike
         ? buildGroupHistoryKey({
             channel: "whatsapp",
             accountId: route.accountId,
@@ -95,7 +96,7 @@ export function createWebOnMessageHandler(params: {
       return;
     }
 
-    if (msg.chatType === "group") {
+    if (msg.chatType === "group" || msg.chatType === "channel") {
       const metaCtx = {
         From: msg.from,
         To: msg.to,
@@ -124,23 +125,25 @@ export function createWebOnMessageHandler(params: {
         warn: params.replyLogger.warn.bind(params.replyLogger),
       });
 
-      const gating = applyGroupGating({
-        cfg: params.cfg,
-        msg,
-        conversationId,
-        groupHistoryKey,
-        agentId: route.agentId,
-        sessionKey: route.sessionKey,
-        baseMentionConfig: params.baseMentionConfig,
-        authDir: params.account.authDir,
-        groupHistories: params.groupHistories,
-        groupHistoryLimit: params.groupHistoryLimit,
-        groupMemberNames: params.groupMemberNames,
-        logVerbose,
-        replyLogger: params.replyLogger,
-      });
-      if (!gating.shouldProcess) {
-        return;
+      if (msg.chatType === "group") {
+        const gating = applyGroupGating({
+          cfg: params.cfg,
+          msg,
+          conversationId,
+          groupHistoryKey,
+          agentId: route.agentId,
+          sessionKey: route.sessionKey,
+          baseMentionConfig: params.baseMentionConfig,
+          authDir: params.account.authDir,
+          groupHistories: params.groupHistories,
+          groupHistoryLimit: params.groupHistoryLimit,
+          groupMemberNames: params.groupMemberNames,
+          logVerbose,
+          replyLogger: params.replyLogger,
+        });
+        if (!gating.shouldProcess) {
+          return;
+        }
       }
     } else {
       // Ensure `peerId` for DMs is stable and stored as E.164 when possible.

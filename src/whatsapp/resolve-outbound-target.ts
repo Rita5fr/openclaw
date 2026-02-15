@@ -1,5 +1,5 @@
 import { missingTargetError } from "../infra/outbound/target-errors.js";
-import { isWhatsAppGroupJid, normalizeWhatsAppTarget } from "./normalize.js";
+import { isWhatsAppGroupJid, isWhatsAppNewsletterJid, normalizeWhatsAppTarget } from "./normalize.js";
 
 export type WhatsAppOutboundTargetResolution =
   | { ok: true; to: string }
@@ -25,10 +25,13 @@ export function resolveWhatsAppOutboundTarget(params: {
     if (!normalizedTo) {
       return {
         ok: false,
-        error: missingTargetError("WhatsApp", "<E.164|group JID>"),
+        error: missingTargetError("WhatsApp", "<E.164|group JID|newsletter JID>"),
       };
     }
     if (isWhatsAppGroupJid(normalizedTo)) {
+      return { ok: true, to: normalizedTo };
+    }
+    if (isWhatsAppNewsletterJid(normalizedTo)) {
       return { ok: true, to: normalizedTo };
     }
     if (params.mode === "implicit" || params.mode === "heartbeat") {
@@ -40,7 +43,7 @@ export function resolveWhatsAppOutboundTarget(params: {
       }
       return {
         ok: false,
-        error: missingTargetError("WhatsApp", "<E.164|group JID>"),
+        error: missingTargetError("WhatsApp", "<E.164|group JID|newsletter JID>"),
       };
     }
     return { ok: true, to: normalizedTo };
@@ -48,6 +51,6 @@ export function resolveWhatsAppOutboundTarget(params: {
 
   return {
     ok: false,
-    error: missingTargetError("WhatsApp", "<E.164|group JID>"),
+    error: missingTargetError("WhatsApp", "<E.164|group JID|newsletter JID>"),
   };
 }

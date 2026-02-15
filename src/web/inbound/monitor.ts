@@ -71,13 +71,13 @@ export async function monitorWebInbox(options: {
     debounceMs: options.debounceMs ?? 0,
     buildKey: (msg) => {
       const senderKey =
-        msg.chatType === "group"
+        msg.chatType === "group" || msg.chatType === "channel"
           ? (msg.senderJid ?? msg.senderE164 ?? msg.senderName ?? msg.from)
           : msg.from;
       if (!senderKey) {
         return null;
       }
-      const conversationKey = msg.chatType === "group" ? msg.chatId : msg.from;
+      const conversationKey = msg.chatType === "group" || msg.chatType === "channel" ? msg.chatId : msg.from;
       return `${msg.accountId}:${conversationKey}:${senderKey}`;
     },
     shouldDebounce: options.shouldDebounce,
@@ -170,7 +170,8 @@ export async function monitorWebInbox(options: {
         continue;
       }
 
-      const group = isJidGroup(remoteJid) === true;
+      const newsletter = remoteJid.endsWith("@newsletter");
+      const group = !newsletter && isJidGroup(remoteJid) === true;
       if (id) {
         const dedupeKey = `${options.accountId}:${remoteJid}:${id}`;
         if (isRecentInboundMessage(dedupeKey)) {
@@ -178,15 +179,17 @@ export async function monitorWebInbox(options: {
         }
       }
       const participantJid = msg.key?.participant ?? undefined;
-      const from = group ? remoteJid : await resolveInboundJid(remoteJid);
+      const from = newsletter ? remoteJid : group ? remoteJid : await resolveInboundJid(remoteJid);
       if (!from) {
         continue;
       }
-      const senderE164 = group
-        ? participantJid
-          ? await resolveInboundJid(participantJid)
-          : null
-        : from;
+      const senderE164 = newsletter
+        ? null
+        : group
+          ? participantJid
+            ? await resolveInboundJid(participantJid)
+            : null
+          : from;
 
       let groupSubject: string | undefined;
       let groupParticipants: string[] | undefined;
@@ -216,7 +219,7 @@ export async function monitorWebInbox(options: {
         continue;
       }
 
-      if (id && !access.isSelfChat && options.sendReadReceipts !== false) {
+      if (id && !access.isSelfChat && !newsletter && options.sendReadReceipts !== false) {
         const participant = msg.key?.participant;
         try {
           await sock.readMessages([{ remoteJid, id, participant, fromMe: false }]);
@@ -278,13 +281,15 @@ export async function monitorWebInbox(options: {
       }
 
       const chatJid = remoteJid;
-      const sendComposing = async () => {
-        try {
-          await sock.sendPresenceUpdate("composing", chatJid);
-        } catch (err) {
-          logVerbose(`Presence update failed: ${String(err)}`);
-        }
-      };
+      const sendComposing = newsletter
+        ? async () => {}
+        : async () => {
+            try {
+              await sock.sendPresenceUpdate("composing", chatJid);
+            } catch (err) {
+              logVerbose(`Presence update failed: ${String(err)}`);
+            }
+          };
       const reply = async (text: string) => {
         await sock.sendMessage(chatJid, { text });
       };
@@ -308,7 +313,7 @@ export async function monitorWebInbox(options: {
         body,
         pushName: senderName,
         timestamp,
-        chatType: group ? "group" : "direct",
+        chatType: newsletter ? "channel" : group ? "group" : "direct",
         chatId: remoteJid,
         senderJid: participantJid,
         senderE164: senderE164 ?? undefined,
@@ -368,6 +373,9 @@ export async function monitorWebInbox(options: {
     sock: {
       sendMessage: (jid: string, content: AnyMessageContent) => sock.sendMessage(jid, content),
       sendPresenceUpdate: (presence, jid?: string) => sock.sendPresenceUpdate(presence, jid),
+      newsletterMetadata: (type: "invite" | "jid", key: string) =>
+        (sock as any).newsletterMetadata?.(type, key),
+      newsletterSubscribed: () => (sock as any).newsletterSubscribed?.() ?? [],
     },
     defaultAccountId: options.accountId,
   });

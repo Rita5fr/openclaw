@@ -65,9 +65,9 @@ async function resolveWhatsAppCommandAuthorized(params: {
     return true;
   }
 
-  const isGroup = params.msg.chatType === "group";
+  const isGroupLike = params.msg.chatType === "group" || params.msg.chatType === "channel";
   const senderE164 = normalizeE164(
-    isGroup ? (params.msg.senderE164 ?? "") : (params.msg.senderE164 ?? params.msg.from ?? ""),
+    isGroupLike ? (params.msg.senderE164 ?? "") : (params.msg.senderE164 ?? params.msg.from ?? ""),
   );
   if (!senderE164) {
     return false;
@@ -78,7 +78,7 @@ async function resolveWhatsAppCommandAuthorized(params: {
     params.cfg.channels?.whatsapp?.groupAllowFrom ??
     (configuredAllowFrom.length > 0 ? configuredAllowFrom : undefined);
 
-  if (isGroup) {
+  if (isGroupLike) {
     if (!configuredGroupAllowFrom || configuredGroupAllowFrom.length === 0) {
       return false;
     }
@@ -150,7 +150,8 @@ export async function processMessage(params: {
   });
   let shouldClearGroupHistory = false;
 
-  if (params.msg.chatType === "group") {
+  const isGroupLike = params.msg.chatType === "group" || params.msg.chatType === "channel";
+  if (isGroupLike) {
     const history = params.groupHistory ?? params.groupHistories.get(params.groupHistoryKey) ?? [];
     if (history.length > 0) {
       const historyEntries: HistoryEntry[] = history.map((m) => ({
@@ -168,7 +169,7 @@ export async function processMessage(params: {
             from: conversationId,
             timestamp: entry.timestamp,
             body: entry.body,
-            chatType: "group",
+            chatType: params.msg.chatType,
             senderLabel: entry.sender,
             envelope: envelopeOptions,
           });
@@ -207,7 +208,7 @@ export async function processMessage(params: {
     {
       connectionId: params.connectionId,
       correlationId,
-      from: params.msg.chatType === "group" ? conversationId : params.msg.from,
+      from: isGroupLike ? conversationId : params.msg.from,
       to: params.msg.to,
       body: elide(combinedBody, 240),
       mediaType: params.msg.mediaType ?? null,
@@ -216,7 +217,7 @@ export async function processMessage(params: {
     "inbound web message",
   );
 
-  const fromDisplay = params.msg.chatType === "group" ? conversationId : params.msg.from;
+  const fromDisplay = isGroupLike ? conversationId : params.msg.from;
   const kindLabel = params.msg.mediaType ? `, ${params.msg.mediaType}` : "";
   whatsappInboundLog.info(
     `Inbound message ${fromDisplay} -> ${params.msg.to} (${params.msg.chatType}${kindLabel}, ${combinedBody.length} chars)`,
@@ -226,7 +227,7 @@ export async function processMessage(params: {
   }
 
   const dmRouteTarget =
-    params.msg.chatType !== "group"
+    !isGroupLike
       ? (() => {
           if (params.msg.senderE164) {
             return normalizeE164(params.msg.senderE164);
@@ -260,7 +261,7 @@ export async function processMessage(params: {
     accountId: params.route.accountId,
   });
   const isSelfChat =
-    params.msg.chatType !== "group" &&
+    !isGroupLike &&
     Boolean(params.msg.selfE164) &&
     normalizeE164(params.msg.from) === normalizeE164(params.msg.selfE164 ?? "");
   const responsePrefix =
@@ -270,7 +271,7 @@ export async function processMessage(params: {
       : undefined);
 
   const inboundHistory =
-    params.msg.chatType === "group"
+    isGroupLike
       ? (params.groupHistory ?? params.groupHistories.get(params.groupHistoryKey) ?? []).map(
           (entry) => ({
             sender: entry.sender,
@@ -298,7 +299,7 @@ export async function processMessage(params: {
     MediaUrl: params.msg.mediaUrl,
     MediaType: params.msg.mediaType,
     ChatType: params.msg.chatType,
-    ConversationLabel: params.msg.chatType === "group" ? conversationId : params.msg.from,
+    ConversationLabel: isGroupLike ? conversationId : params.msg.from,
     GroupSubject: params.msg.groupSubject,
     GroupMembers: formatGroupMembers({
       participants: params.msg.groupParticipants,
@@ -387,7 +388,7 @@ export async function processMessage(params: {
         });
         if (info.kind === "final") {
           const fromDisplay =
-            params.msg.chatType === "group" ? conversationId : (params.msg.from ?? "unknown");
+            isGroupLike ? conversationId : (params.msg.from ?? "unknown");
           const hasMedia = Boolean(payload.mediaUrl || payload.mediaUrls?.length);
           whatsappOutboundLog.info(`Auto-replied to ${fromDisplay}${hasMedia ? " (media)" : ""}`);
           if (shouldLogVerbose()) {

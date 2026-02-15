@@ -43,12 +43,15 @@ export const whatsappPlugin: ChannelPlugin<ResolvedWhatsAppAccount> = {
     preferSessionLookupForAnnounceTarget: true,
   },
   onboarding: whatsappOnboardingAdapter,
-  agentTools: () => [getWhatsAppRuntime().channel.whatsapp.createLoginTool()],
+  agentTools: () => [
+    getWhatsAppRuntime().channel.whatsapp.createLoginTool(),
+    getWhatsAppRuntime().channel.whatsapp.createChannelLookupTool(),
+  ],
   pairing: {
     idLabel: "whatsappSenderId",
   },
   capabilities: {
-    chatTypes: ["direct", "group"],
+    chatTypes: ["direct", "group", "channel"],
     polls: true,
     reactions: true,
     media: true,
@@ -220,7 +223,7 @@ export const whatsappPlugin: ChannelPlugin<ResolvedWhatsAppAccount> = {
     normalizeTarget: normalizeWhatsAppMessagingTarget,
     targetResolver: {
       looksLikeId: looksLikeWhatsAppTargetId,
-      hint: "<E.164|group JID>",
+      hint: "<E.164|group JID|newsletter JID>",
     },
   },
   directory: {
