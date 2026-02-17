@@ -172,6 +172,90 @@ install_pnpm() {
   ok "pnpm $(pnpm -v)"
 }
 
+# ── Configure pnpm global bin directory ──────────────────────
+setup_pnpm_global_bin() {
+  # pnpm needs PNPM_HOME + global-bin-dir for global installs (skills like clawhub, mcporter)
+  local pnpm_home="${PNPM_HOME:-$HOME/.local/share/pnpm}"
+  mkdir -p "$pnpm_home"
+  export PNPM_HOME="$pnpm_home"
+  export PATH="$PNPM_HOME:$PATH"
+
+  # Run pnpm setup to wire everything (idempotent)
+  pnpm setup 2>/dev/null || true
+
+  # Ensure PNPM_HOME is in shell rc files
+  SHELL_NAME=$(basename "${SHELL:-/bin/bash}")
+  case "$SHELL_NAME" in
+    zsh)  RC_FILE="$HOME/.zshrc" ;;
+    fish) RC_FILE="$HOME/.config/fish/config.fish" ;;
+    *)    RC_FILE="$HOME/.bashrc" ;;
+  esac
+  touch "$RC_FILE" 2>/dev/null || true
+
+  if ! grep -q "PNPM_HOME" "$RC_FILE" 2>/dev/null; then
+    echo "" >> "$RC_FILE"
+    echo "# pnpm global bin" >> "$RC_FILE"
+    if [ "$SHELL_NAME" = "fish" ]; then
+      echo "set -gx PNPM_HOME \"$pnpm_home\"" >> "$RC_FILE"
+      echo "set -gx PATH \"\$PNPM_HOME\" \$PATH" >> "$RC_FILE"
+    else
+      echo "export PNPM_HOME=\"$pnpm_home\"" >> "$RC_FILE"
+      echo 'export PATH="$PNPM_HOME:$PATH"' >> "$RC_FILE"
+    fi
+  fi
+
+  ok "pnpm global bin directory configured: $pnpm_home"
+}
+
+# ── Install Homebrew on Linux (linuxbrew) for skills like wacli ──
+install_linuxbrew() {
+  if [[ "$OS" != "linux" ]]; then return 0; fi
+  if command -v brew &>/dev/null; then
+    ok "Homebrew (Linuxbrew) already installed"
+    return 0
+  fi
+  info "Installing Homebrew (Linuxbrew) for skill dependencies..."
+  # Install linuxbrew prerequisites
+  if command -v apt-get &>/dev/null; then
+    run_sudo apt-get install -y -qq build-essential procps curl file git 2>/dev/null || true
+  elif command -v dnf &>/dev/null; then
+    run_sudo dnf install -y -q procps-ng curl file git gcc 2>/dev/null || true
+  elif command -v yum &>/dev/null; then
+    run_sudo yum install -y -q procps-ng curl file git gcc 2>/dev/null || true
+  fi
+
+  # Install Homebrew (non-interactive)
+  NONINTERACTIVE=1 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)" || {
+    warn "Linuxbrew install failed (non-fatal) — wacli skill will be unavailable"
+    return 0
+  }
+
+  # Add brew to current session + shell rc
+  local brew_path=""
+  if [[ -f "/home/linuxbrew/.linuxbrew/bin/brew" ]]; then
+    brew_path="/home/linuxbrew/.linuxbrew/bin/brew"
+  elif [[ -f "$HOME/.linuxbrew/bin/brew" ]]; then
+    brew_path="$HOME/.linuxbrew/bin/brew"
+  fi
+
+  if [[ -n "$brew_path" ]]; then
+    eval "$("$brew_path" shellenv)"
+    SHELL_NAME=$(basename "${SHELL:-/bin/bash}")
+    case "$SHELL_NAME" in
+      zsh)  RC_FILE="$HOME/.zshrc" ;;
+      fish) RC_FILE="$HOME/.config/fish/config.fish" ;;
+      *)    RC_FILE="$HOME/.bashrc" ;;
+    esac
+    touch "$RC_FILE" 2>/dev/null || true
+    if ! grep -q "linuxbrew" "$RC_FILE" 2>/dev/null; then
+      echo "" >> "$RC_FILE"
+      echo "# Homebrew (Linuxbrew)" >> "$RC_FILE"
+      echo "eval \"\$($brew_path shellenv)\"" >> "$RC_FILE"
+    fi
+    ok "Linuxbrew installed"
+  fi
+}
+
 # ── Fix npm permissions (Linux) ──────────────────────────────
 fix_npm_permissions() {
   if [[ "$OS" != "linux" ]]; then return 0; fi
@@ -213,6 +297,8 @@ install_git
 fix_npm_permissions
 install_node
 install_pnpm
+setup_pnpm_global_bin
+install_linuxbrew
 
 # Step 2: Clone / Pull
 echo ""
@@ -242,7 +328,15 @@ info "Building OpenClaw..."
 pnpm build
 ok "Build complete"
 
-# Step 5: Link binary
+# Step 5: Build Control UI assets
+info "Building Control UI..."
+if [ -d "$INSTALL_DIR/ui" ]; then
+  pnpm ui:build 2>/dev/null && ok "Control UI built" || warn "Control UI build failed (non-fatal)"
+else
+  warn "UI source directory not found — skipping ui:build"
+fi
+
+# Step 6: Link binary
 mkdir -p "$BIN_DIR"
 
 cat > "$BIN_DIR/openclaw" << WRAPPER
@@ -254,8 +348,10 @@ chmod +x "$BIN_DIR/openclaw"
 
 ok "Binary linked to $BIN_DIR/openclaw"
 
-# Step 6: Ensure PATH
-if [[ ":$PATH:" != *":$BIN_DIR:"* ]]; then
+# Step 7: Ensure PATH (add to current session AND shell rc)
+export PATH="$BIN_DIR:$PATH"
+
+if [[ ":$PATH:" != *":$BIN_DIR:"* ]] || true; then
   SHELL_NAME=$(basename "${SHELL:-/bin/bash}")
   case "$SHELL_NAME" in
     zsh)  RC_FILE="$HOME/.zshrc" ;;
@@ -263,7 +359,10 @@ if [[ ":$PATH:" != *":$BIN_DIR:"* ]]; then
     *)    RC_FILE="$HOME/.bashrc" ;;
   esac
 
-  if [ -f "$RC_FILE" ] && ! grep -q "$BIN_DIR" "$RC_FILE" 2>/dev/null; then
+  # Create rc file if it doesn't exist
+  touch "$RC_FILE" 2>/dev/null || true
+
+  if ! grep -q "$BIN_DIR" "$RC_FILE" 2>/dev/null; then
     echo "" >> "$RC_FILE"
     echo "# OpenClaw (custom fork)" >> "$RC_FILE"
     if [ "$SHELL_NAME" = "fish" ]; then
@@ -271,16 +370,51 @@ if [[ ":$PATH:" != *":$BIN_DIR:"* ]]; then
     else
       echo "export PATH=\"$BIN_DIR:\$PATH\"" >> "$RC_FILE"
     fi
-    warn "Added $BIN_DIR to PATH in $RC_FILE — restart your shell or run: source $RC_FILE"
   fi
+  ok "PATH configured in $RC_FILE"
 fi
 
-# Step 7: Run doctor
-export PATH="$BIN_DIR:$PATH"
+# Step 8: Create state directory (~/.openclaw) and subdirectories
+STATE_DIR="$HOME/.openclaw"
+info "Initializing state directory..."
+mkdir -p "$STATE_DIR"
+chmod 700 "$STATE_DIR" 2>/dev/null || true
+mkdir -p "$STATE_DIR/sessions" "$STATE_DIR/store" "$STATE_DIR/credentials"
+ok "State directory ready: $STATE_DIR"
+
+# Step 9: Bootstrap config — set gateway.mode and run setup
+info "Configuring OpenClaw..."
+"$BIN_DIR/openclaw" setup 2>/dev/null || true
+"$BIN_DIR/openclaw" config set gateway.mode local 2>/dev/null || true
+ok "Gateway mode set to local"
+
+# Step 10: Generate gateway auth token if missing
+if ! "$BIN_DIR/openclaw" config get gateway.auth.token &>/dev/null || \
+   [ -z "$("$BIN_DIR/openclaw" config get gateway.auth.token 2>/dev/null)" ]; then
+  GATEWAY_TOKEN=$(node -e "console.log(require('crypto').randomBytes(32).toString('hex'))" 2>/dev/null || openssl rand -hex 32)
+  "$BIN_DIR/openclaw" config set gateway.auth.mode token 2>/dev/null || true
+  "$BIN_DIR/openclaw" config set gateway.auth.token "$GATEWAY_TOKEN" 2>/dev/null || true
+  ok "Gateway auth token generated"
+else
+  ok "Gateway auth token already configured"
+fi
+
+# Step 11: Disable memory search if no embedding provider is available
+HAS_EMBEDDING=0
+if [ -n "${OPENAI_API_KEY:-}" ] || [ -n "${GEMINI_API_KEY:-}" ]; then
+  HAS_EMBEDDING=1
+fi
+if [ "$HAS_EMBEDDING" -eq 0 ]; then
+  "$BIN_DIR/openclaw" config set agents.defaults.memorySearch.enabled false 2>/dev/null || true
+  ok "Memory search disabled (no embedding provider — enable later with openclaw auth add)"
+fi
+
+# Step 12: Run doctor to verify
+echo ""
 info "Running doctor..."
 "$BIN_DIR/openclaw" doctor --non-interactive 2>/dev/null || true
 
-# Step 8: Done
+# Step 13: Done
 echo ""
 printf "${GREEN}════════════════════════════════════════════════════${NC}\n"
 printf "${GREEN}  OpenClaw installed successfully!${NC}\n"
@@ -290,8 +424,17 @@ info "Version: $(node "$INSTALL_DIR/openclaw.mjs" --version 2>/dev/null || echo 
 info "Source:  $INSTALL_DIR"
 info "Binary:  $BIN_DIR/openclaw"
 echo ""
+printf "${YELLOW}  ┌────────────────────────────────────────────────┐${NC}\n"
+printf "${YELLOW}  │  IMPORTANT: Source your shell config to use    │${NC}\n"
+printf "${YELLOW}  │  openclaw in this session:                     │${NC}\n"
+printf "${YELLOW}  │                                                │${NC}\n"
+printf "${YELLOW}  │    source ~/.bashrc                            │${NC}\n"
+printf "${YELLOW}  │                                                │${NC}\n"
+printf "${YELLOW}  │  Or just open a new terminal.                  │${NC}\n"
+printf "${YELLOW}  └────────────────────────────────────────────────┘${NC}\n"
+echo ""
 info "Get started:"
-echo "  openclaw onboard         # First-time setup"
+echo "  openclaw onboard         # First-time setup (API keys, channels)"
 echo "  openclaw doctor          # Check health"
 echo "  openclaw gateway run     # Start gateway"
 echo ""
