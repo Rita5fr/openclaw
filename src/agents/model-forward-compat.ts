@@ -19,10 +19,12 @@ const ZAI_GLM5_TEMPLATE_MODEL_IDS = ["glm-4.7"] as const;
 
 const ANTIGRAVITY_OPUS_46_MODEL_ID = "claude-opus-4-6";
 const ANTIGRAVITY_OPUS_46_DOT_MODEL_ID = "claude-opus-4.6";
-const ANTIGRAVITY_OPUS_TEMPLATE_MODEL_IDS = ["claude-opus-4-5", "claude-opus-4.5"] as const;
+const ANTIGRAVITY_OPUS_TEMPLATE_MODEL_IDS = ["claude-opus-4-6", "claude-opus-4.6", "claude-opus-4-5", "claude-opus-4.5"] as const;
 const ANTIGRAVITY_OPUS_46_THINKING_MODEL_ID = "claude-opus-4-6-thinking";
 const ANTIGRAVITY_OPUS_46_DOT_THINKING_MODEL_ID = "claude-opus-4.6-thinking";
 const ANTIGRAVITY_OPUS_THINKING_TEMPLATE_MODEL_IDS = [
+  "claude-opus-4-6-thinking",
+  "claude-opus-4.6-thinking",
   "claude-opus-4-5-thinking",
   "claude-opus-4.5-thinking",
 ] as const;
@@ -31,13 +33,20 @@ export const ANTIGRAVITY_OPUS_46_FORWARD_COMPAT_CANDIDATES = [
   {
     id: ANTIGRAVITY_OPUS_46_THINKING_MODEL_ID,
     templatePrefixes: [
+      "google-antigravity/claude-opus-4-6-thinking",
+      "google-antigravity/claude-opus-4.6-thinking",
       "google-antigravity/claude-opus-4-5-thinking",
       "google-antigravity/claude-opus-4.5-thinking",
     ],
   },
   {
     id: ANTIGRAVITY_OPUS_46_MODEL_ID,
-    templatePrefixes: ["google-antigravity/claude-opus-4-5", "google-antigravity/claude-opus-4.5"],
+    templatePrefixes: [
+      "google-antigravity/claude-opus-4-6",
+      "google-antigravity/claude-opus-4.6",
+      "google-antigravity/claude-opus-4-5",
+      "google-antigravity/claude-opus-4.5",
+    ],
   },
 ] as const;
 
