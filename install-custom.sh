@@ -158,12 +158,12 @@ install_pnpm() {
   fi
   info "Installing pnpm..."
   if command -v corepack &>/dev/null; then
-    corepack enable 2>/dev/null || true
+    run_sudo corepack enable 2>/dev/null || true
     corepack prepare pnpm@10 --activate 2>/dev/null || true
     hash -r 2>/dev/null || true
   fi
   if ! command -v pnpm &>/dev/null; then
-    npm install -g pnpm@10
+    run_sudo npm install -g pnpm@10
     hash -r 2>/dev/null || true
   fi
   if ! command -v pnpm &>/dev/null; then
