@@ -414,7 +414,77 @@ echo ""
 info "Running doctor..."
 "$BIN_DIR/openclaw" doctor --non-interactive 2>/dev/null || true
 
-# Step 13: Done
+# Step 13: Create systemd service for auto-start
+CURRENT_USER="$(whoami)"
+NODE_PATH="$(command -v node)"
+setup_systemd_service() {
+  if [[ "$OS" != "linux" ]]; then
+    warn "Systemd service only supported on Linux — skipping"
+    return 0
+  fi
+  if ! command -v systemctl &>/dev/null; then
+    warn "systemctl not found — skipping service setup"
+    return 0
+  fi
+
+  info "Setting up systemd service..."
+
+  local service_user="$CURRENT_USER"
+  local service_home="$HOME"
+  local service_install_dir="$INSTALL_DIR"
+  local service_bin_dir="$BIN_DIR"
+
+  # Build environment block — pass through API keys if set
+  local env_lines=""
+  env_lines+="Environment=\"HOME=$service_home\"\n"
+  env_lines+="Environment=\"NODE_ENV=production\"\n"
+  env_lines+="Environment=\"PATH=$service_bin_dir:$service_home/.local/share/pnpm:/usr/local/bin:/usr/bin:/bin\"\n"
+  env_lines+="Environment=\"PNPM_HOME=$service_home/.local/share/pnpm\"\n"
+  for key in OPENAI_API_KEY ANTHROPIC_API_KEY GEMINI_API_KEY GOOGLE_API_KEY; do
+    if [ -n "${!key:-}" ]; then
+      env_lines+="Environment=\"$key=${!key}\"\n"
+    fi
+  done
+
+  run_sudo bash -c "cat > /etc/systemd/system/openclaw.service << SYSTEMD_EOF
+[Unit]
+Description=OpenClaw Gateway
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=$service_user
+Group=$service_user
+WorkingDirectory=$service_install_dir
+ExecStart=$NODE_PATH $service_install_dir/openclaw.mjs gateway run
+Restart=always
+RestartSec=5
+$(printf '%b' "$env_lines")
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=openclaw
+
+# Hardening
+NoNewPrivileges=true
+ProtectSystem=strict
+ReadWritePaths=$service_home
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target
+SYSTEMD_EOF"
+
+  run_sudo systemctl daemon-reload
+  run_sudo systemctl enable openclaw.service
+  run_sudo systemctl restart openclaw.service
+  ok "Systemd service created and started (auto-starts on boot)"
+}
+
+setup_systemd_service
+
+# Step 14: Done
 echo ""
 printf "${GREEN}════════════════════════════════════════════════════${NC}\n"
 printf "${GREEN}  OpenClaw installed successfully!${NC}\n"
@@ -436,8 +506,14 @@ echo ""
 info "Get started:"
 echo "  openclaw onboard         # First-time setup (API keys, channels)"
 echo "  openclaw doctor          # Check health"
-echo "  openclaw gateway run     # Start gateway"
+echo "  openclaw gateway run     # Start gateway (manual)"
+echo ""
+info "Service management:"
+echo "  sudo systemctl status openclaw   # Check status"
+echo "  sudo systemctl restart openclaw  # Restart"
+echo "  sudo systemctl stop openclaw     # Stop"
+echo "  sudo journalctl -u openclaw -f   # View logs"
 echo ""
 info "To update later, re-run this script or:"
-echo "  cd $INSTALL_DIR && git pull && pnpm install && pnpm build"
+echo "  cd $INSTALL_DIR && git pull && pnpm install && pnpm build && sudo systemctl restart openclaw"
 echo ""
