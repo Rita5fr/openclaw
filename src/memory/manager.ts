@@ -183,6 +183,25 @@ export class MemoryIndexManager implements MemorySearchManager {
     this.batch = this.resolveBatchConfig();
   }
 
+  private ensureDbOpen(): void {
+    if (this.closed) {
+      throw new Error("memory index manager is closed");
+    }
+    try {
+      this.db.prepare("SELECT 1").get();
+    } catch (err) {
+      if (/database is not open/i.test(String(err))) {
+        this.db = this.openDatabase();
+        this.vectorReady = null;
+        this.vector.available = null;
+        this.fts.available = false;
+        this.ensureSchema();
+      } else {
+        throw err;
+      }
+    }
+  }
+
   async warmSession(sessionKey?: string): Promise<void> {
     if (!this.settings.sync.onSessionStart) {
       return;
@@ -207,6 +226,7 @@ export class MemoryIndexManager implements MemorySearchManager {
       sessionKey?: string;
     },
   ): Promise<MemorySearchResult[]> {
+    this.ensureDbOpen();
     void this.warmSession(opts?.sessionKey);
     if (this.settings.sync.onSearch && (this.dirty || this.sessionsDirty)) {
       void this.sync({ reason: "search" }).catch((err) => {
@@ -329,6 +349,7 @@ export class MemoryIndexManager implements MemorySearchManager {
     force?: boolean;
     progress?: (update: MemorySyncProgressUpdate) => void;
   }): Promise<void> {
+    this.ensureDbOpen();
     if (this.syncing) {
       return this.syncing;
     }
@@ -404,6 +425,7 @@ export class MemoryIndexManager implements MemorySearchManager {
   }
 
   status(): MemoryProviderStatus {
+    this.ensureDbOpen();
     const sourceFilter = this.buildSourceFilter();
     const files = this.db
       .prepare(`SELECT COUNT(*) as c FROM files WHERE 1=1${sourceFilter.sql}`)

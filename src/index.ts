@@ -76,12 +76,36 @@ const isMain = isMainModule({
   currentFile: fileURLToPath(import.meta.url),
 });
 
+/**
+ * Detect benign `setRawMode EIO` errors thrown by Node's readline/tty
+ * cleanup when stdin is not a real terminal (e.g. running under systemd
+ * with `StandardInput=null`). These are harmless cleanup failures that
+ * should not crash the gateway process.
+ */
+function isBenignSetRawModeEio(err: unknown): boolean {
+  if (!err || typeof err !== "object") return false;
+  const anyErr = err as Record<string, unknown>;
+  const code = String(anyErr.code ?? "");
+  const msg = String(anyErr.message ?? "");
+  const stack = String(anyErr.stack ?? "");
+
+  return (
+    code === "EIO" &&
+    /setrawmode/i.test(msg) &&
+    (stack.includes("node:tty") || stack.includes("node:internal/readline"))
+  );
+}
+
 if (isMain) {
   // Global error handlers to prevent silent crashes from unhandled rejections/exceptions.
   // These log the error and exit gracefully instead of crashing without trace.
   installUnhandledRejectionHandler();
 
   process.on("uncaughtException", (error) => {
+    if (isBenignSetRawModeEio(error)) {
+      console.warn("[openclaw] Suppressed benign TTY cleanup error:", formatUncaughtError(error));
+      return;
+    }
     console.error("[openclaw] Uncaught exception:", formatUncaughtError(error));
     process.exit(1);
   });
