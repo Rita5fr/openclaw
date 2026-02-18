@@ -399,15 +399,10 @@ else
   ok "Gateway auth token already configured"
 fi
 
-# Step 11: Disable memory search if no embedding provider is available
-HAS_EMBEDDING=0
-if [ -n "${OPENAI_API_KEY:-}" ] || [ -n "${GEMINI_API_KEY:-}" ]; then
-  HAS_EMBEDDING=1
-fi
-if [ "$HAS_EMBEDDING" -eq 0 ]; then
-  "$BIN_DIR/openclaw" config set agents.defaults.memorySearch.enabled false 2>/dev/null || true
-  ok "Memory search disabled (no embedding provider — enable later with openclaw auth add)"
-fi
+# Step 11: Memory search — leave enabled by default.
+# The runtime will gracefully degrade if no embedding provider is configured.
+# Users with OAuth auth (not env vars) would be incorrectly disabled otherwise.
+ok "Memory search left enabled (runtime will handle provider availability)"
 
 # Step 12: Run doctor to verify
 echo ""
