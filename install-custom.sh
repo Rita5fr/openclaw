@@ -348,6 +348,14 @@ chmod +x "$BIN_DIR/openclaw"
 
 ok "Binary linked to $BIN_DIR/openclaw"
 
+# Also symlink into /usr/local/bin so it's immediately available
+# (no need to source rc files — /usr/local/bin is in default PATH)
+if [[ -d /usr/local/bin ]]; then
+  run_sudo ln -sf "$BIN_DIR/openclaw" /usr/local/bin/openclaw 2>/dev/null && \
+    ok "Symlinked to /usr/local/bin/openclaw (immediately available)" || \
+    warn "Could not symlink to /usr/local/bin (openclaw will be available after opening a new terminal)"
+fi
+
 # Step 7: Ensure PATH (add to current session AND shell rc)
 export PATH="$BIN_DIR:$PATH"
 
@@ -509,7 +517,6 @@ info "To update later, re-run this script or:"
 echo "  cd $INSTALL_DIR && git pull && pnpm install && pnpm build && sudo systemctl restart openclaw"
 echo ""
 
-# Restart the shell so PATH changes take effect immediately.
-# This replaces the old "source ~/.bashrc" manual step.
-info "Restarting shell to activate openclaw commands..."
-exec "$SHELL"
+# Note: openclaw should be available immediately via /usr/local/bin symlink.
+# If not, opening a new terminal will pick up the PATH from .bashrc/.profile.
+ok "Installation complete — openclaw is ready to use!"
