@@ -399,10 +399,13 @@ else
   ok "Gateway auth token already configured"
 fi
 
-# Step 11: Memory search — leave enabled by default.
-# The runtime will gracefully degrade if no embedding provider is configured.
-# Users with OAuth auth (not env vars) would be incorrectly disabled otherwise.
-ok "Memory search left enabled (runtime will handle provider availability)"
+# Step 11: Enable memory search + embedding by default.
+# This ensures that when a provider (Codex, Antigravity, etc.) is added during
+# onboarding, memory embedding is already active and working.
+info "Enabling memory search and embedding..."
+"$BIN_DIR/openclaw" config set agents.defaults.memorySearch.enabled true 2>/dev/null || true
+"$BIN_DIR/openclaw" config set plugins.slots.memory memory-core 2>/dev/null || true
+ok "Memory search and embedding enabled"
 
 # Step 12: Run doctor to verify
 echo ""
@@ -489,15 +492,6 @@ info "Version: $(node "$INSTALL_DIR/openclaw.mjs" --version 2>/dev/null || echo 
 info "Source:  $INSTALL_DIR"
 info "Binary:  $BIN_DIR/openclaw"
 echo ""
-printf "${YELLOW}  ┌────────────────────────────────────────────────┐${NC}\n"
-printf "${YELLOW}  │  IMPORTANT: Source your shell config to use    │${NC}\n"
-printf "${YELLOW}  │  openclaw in this session:                     │${NC}\n"
-printf "${YELLOW}  │                                                │${NC}\n"
-printf "${YELLOW}  │    source ~/.bashrc                            │${NC}\n"
-printf "${YELLOW}  │                                                │${NC}\n"
-printf "${YELLOW}  │  Or just open a new terminal.                  │${NC}\n"
-printf "${YELLOW}  └────────────────────────────────────────────────┘${NC}\n"
-echo ""
 info "Get started:"
 echo "  openclaw onboard         # First-time setup (API keys, channels)"
 echo "  openclaw doctor          # Check health"
@@ -512,3 +506,8 @@ echo ""
 info "To update later, re-run this script or:"
 echo "  cd $INSTALL_DIR && git pull && pnpm install && pnpm build && sudo systemctl restart openclaw"
 echo ""
+
+# Restart the shell so PATH changes take effect immediately.
+# This replaces the old "source ~/.bashrc" manual step.
+info "Restarting shell to activate openclaw commands..."
+exec "$SHELL" -l
