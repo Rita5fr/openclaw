@@ -1,5 +1,7 @@
 import type { loadConfig } from "../../../config/config.js";
 import type { resolveAgentRoute } from "../../../routing/resolve-route.js";
+import type { WebInboundMsg } from "../types.js";
+import type { GroupHistoryEntry } from "./process-message.js";
 import { buildAgentSessionKey } from "../../../routing/resolve-route.js";
 import {
   buildAgentMainSessionKey,
@@ -8,8 +10,6 @@ import {
 } from "../../../routing/session-key.js";
 import { formatError } from "../../session.js";
 import { whatsappInboundLog } from "../loggers.js";
-import type { WebInboundMsg } from "../types.js";
-import type { GroupHistoryEntry } from "./process-message.js";
 
 export async function maybeBroadcastMessage(params: {
   cfg: ReturnType<typeof loadConfig>;
@@ -41,8 +41,9 @@ export async function maybeBroadcastMessage(params: {
 
   const agentIds = params.cfg.agents?.list?.map((agent) => normalizeAgentId(agent.id));
   const hasKnownAgents = (agentIds?.length ?? 0) > 0;
+  const isGroupLike = params.msg.chatType === "group" || params.msg.chatType === "channel";
   const groupHistorySnapshot =
-    params.msg.chatType === "group"
+    isGroupLike
       ? (params.groupHistories.get(params.groupHistoryKey) ?? [])
       : undefined;
 
@@ -60,7 +61,7 @@ export async function maybeBroadcastMessage(params: {
         channel: "whatsapp",
         accountId: params.route.accountId,
         peer: {
-          kind: params.msg.chatType === "group" ? "group" : "direct",
+          kind: isGroupLike ? "group" : "direct",
           id: params.peerId,
         },
         dmScope: params.cfg.session?.dmScope,
@@ -91,7 +92,7 @@ export async function maybeBroadcastMessage(params: {
     await Promise.allSettled(broadcastAgents.map(processForAgent));
   }
 
-  if (params.msg.chatType === "group") {
+  if (isGroupLike) {
     params.groupHistories.set(params.groupHistoryKey, []);
   }
 

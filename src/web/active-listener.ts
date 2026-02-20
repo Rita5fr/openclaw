@@ -26,6 +26,22 @@ export type ActiveWebListener = {
   ) => Promise<void>;
   sendComposingTo: (to: string) => Promise<void>;
   close?: () => Promise<void>;
+  newsletterList?: () => Promise<Array<{
+    id: string;
+    name: string;
+    subscribersCount?: number;
+    verified?: boolean;
+    inviteUrl?: string;
+    description?: string;
+  }>>;
+  newsletterGetByInvite?: (code: string) => Promise<{
+    id: string;
+    name: string;
+    subscribersCount?: number;
+    verified?: boolean;
+    inviteUrl?: string;
+    description?: string;
+  }>;
 };
 
 let _currentListener: ActiveWebListener | null = null;
@@ -63,9 +79,9 @@ export function setActiveWebListener(
     typeof accountIdOrListener === "string"
       ? { accountId: accountIdOrListener, listener: maybeListener ?? null }
       : {
-          accountId: DEFAULT_ACCOUNT_ID,
-          listener: accountIdOrListener ?? null,
-        };
+        accountId: DEFAULT_ACCOUNT_ID,
+        listener: accountIdOrListener ?? null,
+      };
 
   const id = resolveWebAccountId(accountId);
   if (!listener) {

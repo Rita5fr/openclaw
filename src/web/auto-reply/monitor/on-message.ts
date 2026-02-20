@@ -1,15 +1,15 @@
 import type { getReplyFromConfig } from "../../../auto-reply/reply.js";
 import type { MsgContext } from "../../../auto-reply/templating.js";
+import type { MentionConfig } from "../mentions.js";
+import type { WebInboundMsg } from "../types.js";
+import type { EchoTracker } from "./echo.js";
+import type { GroupHistoryEntry } from "./group-gating.js";
 import { loadConfig } from "../../../config/config.js";
 import { logVerbose } from "../../../globals.js";
 import { resolveAgentRoute } from "../../../routing/resolve-route.js";
 import { buildGroupHistoryKey } from "../../../routing/session-key.js";
 import { normalizeE164 } from "../../../utils.js";
-import type { MentionConfig } from "../mentions.js";
-import type { WebInboundMsg } from "../types.js";
 import { maybeBroadcastMessage } from "./broadcast.js";
-import type { EchoTracker } from "./echo.js";
-import type { GroupHistoryEntry } from "./group-gating.js";
 import { applyGroupGating } from "./group-gating.js";
 import { updateLastRouteInBackground } from "./last-route.js";
 import { resolvePeerId } from "./peer.js";
@@ -69,18 +69,19 @@ export function createWebOnMessageHandler(params: {
       channel: "whatsapp",
       accountId: msg.accountId,
       peer: {
-        kind: msg.chatType === "group" ? "group" : "direct",
+        kind: msg.chatType === "group" || msg.chatType === "channel" ? "group" : "direct",
         id: peerId,
       },
     });
+    const isGroupLike = msg.chatType === "group" || msg.chatType === "channel";
     const groupHistoryKey =
-      msg.chatType === "group"
+      isGroupLike
         ? buildGroupHistoryKey({
-            channel: "whatsapp",
-            accountId: route.accountId,
-            peerKind: "group",
-            peerId,
-          })
+          channel: "whatsapp",
+          accountId: route.accountId,
+          peerKind: "group",
+          peerId,
+        })
         : route.sessionKey;
 
     // Same-phone mode logging retained
@@ -95,7 +96,7 @@ export function createWebOnMessageHandler(params: {
       return;
     }
 
-    if (msg.chatType === "group") {
+    if (msg.chatType === "group" || msg.chatType === "channel") {
       const metaCtx = {
         From: msg.from,
         To: msg.to,
@@ -124,23 +125,25 @@ export function createWebOnMessageHandler(params: {
         warn: params.replyLogger.warn.bind(params.replyLogger),
       });
 
-      const gating = applyGroupGating({
-        cfg: params.cfg,
-        msg,
-        conversationId,
-        groupHistoryKey,
-        agentId: route.agentId,
-        sessionKey: route.sessionKey,
-        baseMentionConfig: params.baseMentionConfig,
-        authDir: params.account.authDir,
-        groupHistories: params.groupHistories,
-        groupHistoryLimit: params.groupHistoryLimit,
-        groupMemberNames: params.groupMemberNames,
-        logVerbose,
-        replyLogger: params.replyLogger,
-      });
-      if (!gating.shouldProcess) {
-        return;
+      if (msg.chatType === "group") {
+        const gating = applyGroupGating({
+          cfg: params.cfg,
+          msg,
+          conversationId,
+          groupHistoryKey,
+          agentId: route.agentId,
+          sessionKey: route.sessionKey,
+          baseMentionConfig: params.baseMentionConfig,
+          authDir: params.account.authDir,
+          groupHistories: params.groupHistories,
+          groupHistoryLimit: params.groupHistoryLimit,
+          groupMemberNames: params.groupMemberNames,
+          logVerbose,
+          replyLogger: params.replyLogger,
+        });
+        if (!gating.shouldProcess) {
+          return;
+        }
       }
     } else {
       // Ensure `peerId` for DMs is stable and stored as E.164 when possible.

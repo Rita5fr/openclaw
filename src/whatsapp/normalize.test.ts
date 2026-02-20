@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isWhatsAppGroupJid, isWhatsAppUserTarget, normalizeWhatsAppTarget } from "./normalize.js";
+import { isWhatsAppGroupJid, isWhatsAppNewsletterJid, isWhatsAppUserTarget, normalizeWhatsAppTarget } from "./normalize.js";
 
 describe("normalizeWhatsAppTarget", () => {
   it("preserves group JIDs", () => {
@@ -26,6 +26,12 @@ describe("normalizeWhatsAppTarget", () => {
   it("normalizes LID JIDs to E.164", () => {
     expect(normalizeWhatsAppTarget("123456789@lid")).toBe("+123456789");
     expect(normalizeWhatsAppTarget("123456789@LID")).toBe("+123456789");
+  });
+
+  it("preserves newsletter JIDs", () => {
+    expect(normalizeWhatsAppTarget("123456@newsletter")).toBe("123456@newsletter");
+    expect(normalizeWhatsAppTarget("whatsapp:123456@newsletter")).toBe("123456@newsletter");
+    expect(normalizeWhatsAppTarget("123456@NEWSLETTER")).toBe("123456@newsletter");
   });
 
   it("rejects invalid targets", () => {
@@ -55,6 +61,22 @@ describe("isWhatsAppUserTarget", () => {
     expect(isWhatsAppUserTarget("abc@s.whatsapp.net")).toBe(false);
     expect(isWhatsAppUserTarget("123456789-987654321@g.us")).toBe(false);
     expect(isWhatsAppUserTarget("+1555123")).toBe(false);
+  });
+});
+
+describe("isWhatsAppNewsletterJid", () => {
+  it("detects newsletter JIDs", () => {
+    expect(isWhatsAppNewsletterJid("123456@newsletter")).toBe(true);
+    expect(isWhatsAppNewsletterJid("whatsapp:123456@newsletter")).toBe(true);
+    expect(isWhatsAppNewsletterJid("123456@NEWSLETTER")).toBe(true);
+  });
+
+  it("rejects non-newsletter JIDs", () => {
+    expect(isWhatsAppNewsletterJid("123@g.us")).toBe(false);
+    expect(isWhatsAppNewsletterJid("123@s.whatsapp.net")).toBe(false);
+    expect(isWhatsAppNewsletterJid("@newsletter")).toBe(false);
+    expect(isWhatsAppNewsletterJid("abc@newsletter")).toBe(false);
+    expect(isWhatsAppNewsletterJid("+1555123")).toBe(false);
   });
 });
 
