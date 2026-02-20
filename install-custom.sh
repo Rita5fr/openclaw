@@ -354,24 +354,26 @@ export PATH="$BIN_DIR:$PATH"
 if [[ ":$PATH:" != *":$BIN_DIR:"* ]] || true; then
   SHELL_NAME=$(basename "${SHELL:-/bin/bash}")
   case "$SHELL_NAME" in
-    zsh)  RC_FILE="$HOME/.zshrc" ;;
-    fish) RC_FILE="$HOME/.config/fish/config.fish" ;;
-    *)    RC_FILE="$HOME/.bashrc" ;;
+    zsh)  RC_FILES=("$HOME/.zshrc") ;;
+    fish) RC_FILES=("$HOME/.config/fish/config.fish") ;;
+    *)    RC_FILES=("$HOME/.bashrc" "$HOME/.profile") ;;
   esac
 
-  # Create rc file if it doesn't exist
-  touch "$RC_FILE" 2>/dev/null || true
+  for RC_FILE in "${RC_FILES[@]}"; do
+    # Create rc file if it doesn't exist
+    touch "$RC_FILE" 2>/dev/null || true
 
-  if ! grep -q "$BIN_DIR" "$RC_FILE" 2>/dev/null; then
-    echo "" >> "$RC_FILE"
-    echo "# OpenClaw (custom fork)" >> "$RC_FILE"
-    if [ "$SHELL_NAME" = "fish" ]; then
-      echo "set -gx PATH $BIN_DIR \$PATH" >> "$RC_FILE"
-    else
-      echo "export PATH=\"$BIN_DIR:\$PATH\"" >> "$RC_FILE"
+    if ! grep -q "$BIN_DIR" "$RC_FILE" 2>/dev/null; then
+      echo "" >> "$RC_FILE"
+      echo "# OpenClaw (custom fork)" >> "$RC_FILE"
+      if [ "$SHELL_NAME" = "fish" ]; then
+        echo "set -gx PATH $BIN_DIR \$PATH" >> "$RC_FILE"
+      else
+        echo "export PATH=\"$BIN_DIR:\$PATH\"" >> "$RC_FILE"
+      fi
     fi
-  fi
-  ok "PATH configured in $RC_FILE"
+    ok "PATH configured in $RC_FILE"
+  done
 fi
 
 # Step 8: Create state directory (~/.openclaw) and subdirectories
@@ -510,4 +512,4 @@ echo ""
 # Restart the shell so PATH changes take effect immediately.
 # This replaces the old "source ~/.bashrc" manual step.
 info "Restarting shell to activate openclaw commands..."
-exec "$SHELL" -l
+exec "$SHELL"
