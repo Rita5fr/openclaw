@@ -399,6 +399,9 @@ export class MemoryIndexManager extends MemoryManagerEmbeddingOps implements Mem
     force?: boolean;
     progress?: (update: MemorySyncProgressUpdate) => void;
   }): Promise<void> {
+    if (this.closed) {
+      return;
+    }
     this.ensureDbOpen();
     if (this.syncing) {
       return this.syncing;
@@ -450,7 +453,7 @@ export class MemoryIndexManager extends MemoryManagerEmbeddingOps implements Mem
               break;
             }
           }
-        } catch {}
+        } catch { }
       }
     }
     if (!allowedWorkspace && !allowedAdditional) {
@@ -488,13 +491,13 @@ export class MemoryIndexManager extends MemoryManagerEmbeddingOps implements Mem
     const files = this.db
       .prepare(`SELECT COUNT(*) as c FROM files WHERE 1=1${sourceFilter.sql}`)
       .get(...sourceFilter.params) as {
-      c: number;
-    };
+        c: number;
+      };
     const chunks = this.db
       .prepare(`SELECT COUNT(*) as c FROM chunks WHERE 1=1${sourceFilter.sql}`)
       .get(...sourceFilter.params) as {
-      c: number;
-    };
+        c: number;
+      };
     const sourceCounts = (() => {
       const sources = Array.from(this.sources);
       if (sources.length === 0) {
@@ -548,15 +551,15 @@ export class MemoryIndexManager extends MemoryManagerEmbeddingOps implements Mem
       sourceCounts,
       cache: this.cache.enabled
         ? {
-            enabled: true,
-            entries:
-              (
-                this.db.prepare(`SELECT COUNT(*) as c FROM ${EMBEDDING_CACHE_TABLE}`).get() as
-                  | { c: number }
-                  | undefined
-              )?.c ?? 0,
-            maxEntries: this.cache.maxEntries,
-          }
+          enabled: true,
+          entries:
+            (
+              this.db.prepare(`SELECT COUNT(*) as c FROM ${EMBEDDING_CACHE_TABLE}`).get() as
+              | { c: number }
+              | undefined
+            )?.c ?? 0,
+          maxEntries: this.cache.maxEntries,
+        }
         : { enabled: false, maxEntries: this.cache.maxEntries },
       fts: {
         enabled: this.fts.enabled,
@@ -624,6 +627,7 @@ export class MemoryIndexManager extends MemoryManagerEmbeddingOps implements Mem
       return;
     }
     this.closed = true;
+    const pendingSync = this.syncing;
     if (this.watchTimer) {
       clearTimeout(this.watchTimer);
       this.watchTimer = null;
@@ -643,6 +647,11 @@ export class MemoryIndexManager extends MemoryManagerEmbeddingOps implements Mem
     if (this.sessionUnsubscribe) {
       this.sessionUnsubscribe();
       this.sessionUnsubscribe = null;
+    }
+    if (pendingSync) {
+      try {
+        await pendingSync;
+      } catch { }
     }
     this.db.close();
     INDEX_CACHE.delete(this.cacheKey);
