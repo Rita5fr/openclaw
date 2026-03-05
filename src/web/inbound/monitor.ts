@@ -8,6 +8,7 @@ import { getChildLogger } from "../../logging/logger.js";
 import { createSubsystemLogger } from "../../logging/subsystem.js";
 import { saveMediaBuffer } from "../../media/store.js";
 import { jidToE164, resolveJidToE164 } from "../../utils.js";
+import { isWhatsAppNewsletterJid } from "../../whatsapp/normalize.js";
 import { createWaSocket, getStatusCode, waitForWaConnection } from "../session.js";
 import { checkInboundAccessControl } from "./access-control.js";
 import { isRecentInboundMessage } from "./dedupe.js";
@@ -154,6 +155,7 @@ export async function monitorWebInbox(options: {
   type NormalizedInboundMessage = {
     id?: string;
     remoteJid: string;
+    newsletter: boolean;
     group: boolean;
     participantJid?: string;
     from: string;
@@ -176,7 +178,8 @@ export async function monitorWebInbox(options: {
       return null;
     }
 
-    const group = isJidGroup(remoteJid) === true;
+    const newsletter = isWhatsAppNewsletterJid(remoteJid);
+    const group = !newsletter && isJidGroup(remoteJid) === true;
     if (id) {
       const dedupeKey = `${options.accountId}:${remoteJid}:${id}`;
       if (isRecentInboundMessage(dedupeKey)) {
@@ -225,6 +228,7 @@ export async function monitorWebInbox(options: {
     return {
       id,
       remoteJid,
+      newsletter,
       group,
       participantJid,
       from,
@@ -358,7 +362,7 @@ export async function monitorWebInbox(options: {
       body: enriched.body,
       pushName: senderName,
       timestamp,
-      chatType: inbound.group ? "group" : "direct",
+      chatType: inbound.newsletter ? "channel" : inbound.group ? "group" : "direct",
       chatId: inbound.remoteJid,
       senderJid: inbound.participantJid,
       senderE164: inbound.senderE164 ?? undefined,
@@ -482,6 +486,33 @@ export async function monitorWebInbox(options: {
     signalClose: (reason?: WebListenerCloseReason) => {
       resolveClose(reason ?? { status: undefined, isLoggedOut: false, error: "closed" });
     },
+    // Newsletter / WhatsApp Channel support
+    newsletterList: typeof (sock as Record<string, unknown>).newsletterList === "function"
+      ? async () => {
+        const list = await ((sock as Record<string, unknown>).newsletterList as () => Promise<Array<Record<string, unknown>>>)();
+        return list.map((ch) => ({
+          id: String(ch.id ?? ch.jid ?? ""),
+          name: String(ch.name ?? ch.subject ?? ""),
+          subscribersCount: typeof ch.subscribersCount === "number" ? ch.subscribersCount : undefined,
+          verified: Boolean(ch.verified),
+          inviteUrl: typeof ch.inviteUrl === "string" ? ch.inviteUrl : undefined,
+          description: typeof ch.description === "string" ? ch.description : undefined,
+        }));
+      }
+      : undefined,
+    newsletterGetByInvite: typeof (sock as Record<string, unknown>).newsletterMetadata === "function"
+      ? async (code: string) => {
+        const info = await ((sock as Record<string, unknown>).newsletterMetadata as (type: string, key: string) => Promise<Record<string, unknown>>)("invite", code);
+        return {
+          id: String(info.id ?? info.jid ?? ""),
+          name: String(info.name ?? info.subject ?? ""),
+          subscribersCount: typeof info.subscribersCount === "number" ? info.subscribersCount : undefined,
+          verified: Boolean(info.verified),
+          inviteUrl: typeof info.inviteUrl === "string" ? info.inviteUrl : undefined,
+          description: typeof info.description === "string" ? info.description : undefined,
+        };
+      }
+      : undefined,
     // IPC surface (sendMessage/sendPoll/sendReaction/sendComposingTo)
     ...sendApi,
   } as const;
