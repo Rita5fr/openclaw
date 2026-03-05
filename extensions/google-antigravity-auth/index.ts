@@ -383,6 +383,40 @@ const antigravityPlugin = {
       label: "Google Antigravity",
       docsPath: "/providers/models",
       aliases: ["antigravity"],
+      // Register new models not yet in pi-ai v0.55.x built-in catalog
+      models: {
+        baseUrl: "https://daily-cloudcode-pa.sandbox.googleapis.com",
+        api: "openai-completions" as any, // Actual api is "google-gemini-cli" — resolved at runtime via pi-ai
+        models: [
+          {
+            id: "gemini-3.1-pro-high",
+            name: "Gemini 3.1 Pro High (Antigravity)",
+            reasoning: true,
+            input: ["text", "image"],
+            cost: { input: 2, output: 12, cacheRead: 0.2, cacheWrite: 2.375 },
+            contextWindow: 1048576,
+            maxTokens: 65535,
+          },
+          {
+            id: "gemini-3.1-pro-low",
+            name: "Gemini 3.1 Pro Low (Antigravity)",
+            reasoning: true,
+            input: ["text", "image"],
+            cost: { input: 2, output: 12, cacheRead: 0.2, cacheWrite: 2.375 },
+            contextWindow: 1048576,
+            maxTokens: 65535,
+          },
+          {
+            id: "claude-opus-4-6-thinking",
+            name: "Claude Opus 4.6 Thinking (Antigravity)",
+            reasoning: true,
+            input: ["text", "image"],
+            cost: { input: 5, output: 25, cacheRead: 0.5, cacheWrite: 6.25 },
+            contextWindow: 200000,
+            maxTokens: 128000,
+          },
+        ],
+      },
       auth: [
         {
           id: "oauth",
